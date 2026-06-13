@@ -1,37 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import logoBanner from './assets/logo-banner-t.png'
 import logoEmblem from './assets/logo-emblem-t.png'
+import { formatPrice, listActiveServices } from './lib/services'
+import type { Service } from './lib/services'
 
 /* ---------- data ---------- */
-type Service = { n: string; t: string; d: string; p: string }
 type Why = { n: string; t: string; d: string }
 type PriceCard = { cat: string; rows: [string, string][]; feature?: boolean; tag?: string }
 type Product = { l: string; t: string; d: string }
 type Testimonial = { q: string; n: string; c: string }
 type Hour = [day: string, hours: string, open: boolean]
 
-const services: Service[] = [
-  { n: '01', t: 'Coupe classique', d: 'La coupe homme intemporelle, exécutée à la machine et aux ciseaux.', p: '30 $' },
-  { n: '02', t: 'Coupe stylée', d: 'Dégradés nets, contours au rasoir et finitions soignées sur mesure.', p: '35 $' },
-  { n: '03', t: 'Taille de barbe', d: 'Mise en forme au clipper ou à la lame, serviette chaude et soin.', p: 'dès 10 $' },
-  { n: '04', t: 'Rasage à la lame', d: 'Le rasage traditionnel au coupe-chou, serviette chaude et baume.', p: '15 $' },
-  { n: '05', t: 'Forfait combo', d: "Cheveux + barbe : l'expérience complète du gentleman.", p: '40 $' },
-  { n: '06', t: '65 ans et +', d: 'Un tarif privilège pour nos habitués de longue date.', p: '25 $' },
-]
 const why: Why[] = [
   { n: 'I', t: 'Savoir-faire', d: "Des barbiers d'expérience, un geste précis et maîtrisé à chaque passage." },
   { n: 'II', t: 'Ambiance authentique', d: 'Bois, cuir et métal pour une atmosphère chaleureuse et vintage.' },
   { n: 'III', t: 'Sans rendez-vous', d: 'Passez quand ça vous chante : on vous accueille en tout temps.' },
   { n: 'IV', t: 'Produits Aura', d: 'Une sélection de soins premium, disponibles directement en boutique.' },
-]
-const prices: PriceCard[] = [
-  { cat: 'Adultes', rows: [['Coupe classique', '30 $'], ['Coupe stylée', '35 $']] },
-  { cat: 'Enfants', rows: [['Coupe classique', '20 $'], ['Coupe stylée', '25 $']] },
-  { cat: '65 ans et +', rows: [['Coupe', '25 $']] },
-  { cat: 'Barbe', rows: [['Au clipper', '10 $'], ['À la lame', '15 $']] },
-  { cat: 'Combo', feature: true, tag: 'Populaire', rows: [['Cheveux + Barbe', '40 $']] },
-  { cat: 'Rasage', rows: [['Rasage à la lame', '15 $']] },
 ]
 const aura: Product[] = [
   { l: 'Coiffage', t: 'Pommade', d: 'Fixation forte, fini mat.' },
@@ -77,6 +62,30 @@ function App() {
   const [svcSel, setSvcSel] = useState(0)
   const [timeSel, setTimeSel] = useState(2)
   const [date, setDate] = useState('')
+  const [services, setServices] = useState<Service[]>([])
+
+  /* services depuis Supabase */
+  useEffect(() => {
+    listActiveServices()
+      .then(setServices)
+      .catch((e) => console.error('Chargement des services échoué', e))
+  }, [])
+
+  /* cartes de tarifs dérivées : regroupées par catégorie */
+  const prices = useMemo<PriceCard[]>(() => {
+    const byCat = new Map<string, [string, string][]>()
+    for (const s of services) {
+      const rows = byCat.get(s.category) ?? []
+      rows.push([s.name, formatPrice(s.price_cents)])
+      byCat.set(s.category, rows)
+    }
+    return Array.from(byCat, ([cat, rows]) => ({
+      cat,
+      rows,
+      feature: cat === 'Combo',
+      tag: cat === 'Combo' ? 'Populaire' : undefined,
+    }))
+  }, [services])
 
   /* nav scroll state */
   useEffect(() => {
@@ -104,7 +113,7 @@ function App() {
       io.observe(el)
     })
     return () => io.disconnect()
-  }, [])
+  }, [services])
 
   /* modal: lock scroll + escape to close */
   useEffect(() => {
@@ -257,13 +266,13 @@ function App() {
             <div className="lead">Précision, tradition et un soin du détail à chaque fauteuil.</div>
           </div>
           <div className="services-grid">
-            {services.map((s) => (
-              <article className="svc reveal" key={s.n}>
-                <div className="num">{s.n}</div>
-                <h3>{s.t}</h3>
-                <p>{s.d}</p>
+            {services.map((s, i) => (
+              <article className="svc reveal" key={s.id}>
+                <div className="num">{String(i + 1).padStart(2, '0')}</div>
+                <h3>{s.name}</h3>
+                <p>{s.description}</p>
                 <div className="price">
-                  <span style={{ opacity: 0.6, fontWeight: 400 }}>à partir de</span> {s.p}
+                  <span style={{ opacity: 0.6, fontWeight: 400 }}>à partir de</span> {formatPrice(s.price_cents)}
                 </div>
               </article>
             ))}
