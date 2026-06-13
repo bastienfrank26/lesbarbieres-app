@@ -8,6 +8,9 @@ import {
   updateClient,
 } from '../../lib/clients'
 import type { Client, ClientInput } from '../../lib/clients'
+import { STATUS_LABELS, listAppointmentsForClient } from '../../lib/appointments'
+import type { Appointment } from '../../lib/appointments'
+import { formatLongDate, hm } from '../../lib/datetime'
 
 type Draft = {
   first_name: string
@@ -52,6 +55,18 @@ function ClientForm({
   const [draft, setDraft] = useState<Draft>(() => toDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [history, setHistory] = useState<Appointment[]>([])
+
+  useEffect(() => {
+    if (!initial) return
+    let active = true
+    listAppointmentsForClient(initial.id)
+      .then((a) => active && setHistory(a))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [initial])
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -108,6 +123,28 @@ function ClientForm({
           <label className="block text-sm font-medium text-stone-700">Notes internes</label>
           <textarea className={inputClass} rows={3} value={draft.notes} onChange={(e) => set('notes', e.target.value)} />
         </div>
+
+        {initial && (
+          <div className="mt-5">
+            <h3 className="text-sm font-medium text-stone-700">Historique des rendez-vous</h3>
+            {history.length === 0 ? (
+              <p className="mt-1 text-sm text-stone-400">Aucun rendez-vous.</p>
+            ) : (
+              <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-sm">
+                {history.map((a) => (
+                  <li key={a.id} className="flex justify-between gap-3 rounded-lg bg-stone-50 px-3 py-1.5">
+                    <span className="text-stone-600">
+                      {formatLongDate(new Date(a.starts_at))} · {hm(new Date(a.starts_at))}
+                    </span>
+                    <span className="shrink-0 text-stone-500">
+                      {a.service?.name ?? ''} · {STATUS_LABELS[a.status]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
