@@ -51,6 +51,16 @@ export async function getMyRole(): Promise<BarberRole | null> {
   return (data as BarberRole | null) ?? null
 }
 
+/** Barbier rattaché au compte connecté (null si aucun). */
+export async function getMyBarber(): Promise<Barber | null> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) return null
+  const { data, error } = await supabase.from('barbers').select('*').eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return data ?? null
+}
+
 /** (Admin) Crée un compte de connexion et le rattache à un barbier existant. */
 export async function createAccountForBarber(barberId: string, email: string, password: string, role: BarberRole): Promise<void> {
   const { error } = await supabase.rpc('admin_create_account_for_barber', {

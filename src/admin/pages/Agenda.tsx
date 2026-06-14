@@ -4,11 +4,15 @@ import { MonthView } from '../agenda/MonthView'
 import { AppointmentModal } from '../agenda/AppointmentModal'
 import type { ModalState } from '../agenda/AppointmentModal'
 import {
+  STATUS_COLORS,
+  STATUS_LABELS,
+  STATUS_ORDER,
   listAppointmentsBetween,
   updateAppointment,
   validateSlot,
 } from '../../lib/appointments'
 import type { Appointment } from '../../lib/appointments'
+import { useAdminContext } from '../../lib/adminContext'
 import { listActiveBarbers } from '../../lib/barbers'
 import type { Barber } from '../../lib/barbers'
 import { listActiveServices } from '../../lib/services'
@@ -31,6 +35,7 @@ import {
 type View = 'day' | 'week' | 'month'
 
 export function Agenda() {
+  const { myBarber, isAdmin } = useAdminContext()
   const [view, setView] = useState<View>('week')
   const [cursor, setCursor] = useState<Date>(() => new Date())
   const [barberFilter, setBarberFilter] = useState<string>('all')
@@ -97,10 +102,14 @@ export function Agenda() {
 
   // Barbiers actifs uniquement (les RDV des barbiers désactivés ne s'affichent pas).
   const activeBarberIds = useMemo(() => new Set(barbers.map((b) => b.id)), [barbers])
+
+  // Un barbier ne voit que ses propres rendez-vous ; un admin voit selon le filtre choisi.
+  const effectiveFilter = isAdmin ? barberFilter : myBarber?.id ?? '__none__'
+
   const visibleAppointments = useMemo(() => {
     const base = appointments.filter((a) => activeBarberIds.has(a.barber_id))
-    return barberFilter === 'all' ? base : base.filter((a) => a.barber_id === barberFilter)
-  }, [appointments, activeBarberIds, barberFilter])
+    return effectiveFilter === 'all' ? base : base.filter((a) => a.barber_id === effectiveFilter)
+  }, [appointments, activeBarberIds, effectiveFilter])
 
   const { startMin, endMin } = useMemo(() => gridRange(hours), [hours])
 
@@ -111,15 +120,28 @@ export function Agenda() {
   }
 
   function onCreateSlot(slot: Date) {
-    const barberId = barberFilter !== 'all' ? barberFilter : barbers[0]?.id ?? ''
+    // Un barbier crée toujours pour lui-même ; un admin pour le barbier filtré (ou le 1er).
+    const barberId = isAdmin ? (barberFilter !== 'all' ? barberFilter : barbers[0]?.id ?? '') : myBarber?.id ?? ''
     if (!barberId) {
-      setError('Aucun barbier actif. Ajoutez un barbier avant de créer un rendez-vous.')
+      setError(
+        isAdmin
+          ? 'Aucun barbier actif. Ajoutez un barbier avant de créer un rendez-vous.'
+          : 'Votre compte n’est pas rattaché à un barbier actif.',
+      )
       return
     }
     setModal({ mode: 'create', date: ymd(slot), time: hm(slot), barberId })
   }
 
+  function canEditAppointment(a: Appointment): boolean {
+    return isAdmin || a.barber_id === myBarber?.id
+  }
+
   async function onMoveAppointment(a: Appointment, newStart: Date) {
+    if (!canEditAppointment(a)) {
+      setError('Seul un administrateur peut modifier le rendez-vous d’un autre barbier.')
+      return
+    }
     const duration = a.service?.duration_min ?? Math.round((new Date(a.ends_at).getTime() - new Date(a.starts_at).getTime()) / 60000)
     const newEnd = addMinutes(newStart, duration)
     const validationError = validateSlot(newStart, newEnd, a.barber_id, { hours, closures, appointments, excludeId: a.id })
@@ -156,18 +178,20 @@ export function Agenda() {
           <p className="mt-1 text-sm capitalize text-stone-500 dark:text-stone-400">{title}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={barberFilter}
-            onChange={(e) => setBarberFilter(e.target.value)}
-            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm outline-none focus:border-amber-700 dark:border-stone-600 dark:bg-stone-700 dark:text-stone-100"
-          >
-            <option value="all">Tous les barbiers</option>
-            {barbers.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          {isAdmin && (
+            <select
+              value={barberFilter}
+              onChange={(e) => setBarberFilter(e.target.value)}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm outline-none focus:border-amber-700 dark:border-stone-600 dark:bg-stone-700 dark:text-stone-100"
+            >
+              <option value="all">Tous les barbiers</option>
+              {barbers.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center rounded-lg border border-stone-200 bg-white p-0.5 dark:border-stone-700 dark:bg-stone-800">
             {viewBtn('day', 'Jour')}
             {viewBtn('week', 'Semaine')}
@@ -215,7 +239,7 @@ export function Agenda() {
             hours={hours}
             closures={closures}
             appointments={visibleAppointments}
-            barberId={barberFilter === 'all' ? undefined : barberFilter}
+            barberId={effectiveFilter === 'all' ? undefined : effectiveFilter}
             onCreateSlot={onCreateSlot}
             onSelectAppointment={(a) => setModal({ mode: 'edit', appointment: a })}
             onMoveAppointment={onMoveAppointment}
@@ -223,13 +247,28 @@ export function Agenda() {
         )}
       </div>
 
+      {/* Légende : code de couleurs selon l'état du rendez-vous */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-stone-500 dark:text-stone-400">
+        <span className="font-medium text-stone-600 dark:text-stone-300">États :</span>
+        {STATUS_ORDER.map((s) => (
+          <span key={s} className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: STATUS_COLORS[s].bg }} />
+            {STATUS_LABELS[s]}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm bg-[#44403c]" />
+          Plage bloquée
+        </span>
+      </div>
+
       {modal && (
         <AppointmentModal
           state={modal}
           clients={clients}
           services={services}
-          barbers={barbers}
           ctx={{ hours, closures, appointments }}
+          canEdit={modal.mode === 'create' || canEditAppointment(modal.appointment)}
           onCancel={() => setModal(null)}
           onSaved={() => {
             setModal(null)

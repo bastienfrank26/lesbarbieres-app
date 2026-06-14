@@ -75,6 +75,25 @@ export const STATUS_LABELS: Record<AppointmentStatus, string> = {
 }
 
 /**
+ * Couleurs des rendez-vous dans l'agenda, selon l'ÉTAT (et non le barbier).
+ * `bg` = fond de la pastille, `text` = couleur du texte (lisible sur le fond).
+ */
+export const STATUS_COLORS: Record<AppointmentStatus, { bg: string; text: string }> = {
+  pending: { bg: '#bfdbfe', text: '#1e3a8a' }, // Bleu pâle
+  confirmed: { bg: '#16a34a', text: '#ffffff' }, // Vert
+  completed: { bg: '#d6d3d1', text: '#44403c' }, // Gris pâle
+  no_show: { bg: '#991b1b', text: '#ffffff' }, // Rouge foncé (Absence)
+  paid: { bg: '#57534e', text: '#ffffff' }, // Gris foncé
+  cancelled: { bg: '#fecaca', text: '#7f1d1d' }, // Rouge pâle
+}
+
+/** Couleur d'une plage bloquée (indépendante de l'état). */
+export const BLOCK_COLOR = { bg: '#44403c', text: '#ffffff' }
+
+/** Ordre d'affichage de la légende des couleurs. */
+export const STATUS_ORDER: AppointmentStatus[] = ['pending', 'confirmed', 'completed', 'no_show', 'paid', 'cancelled']
+
+/**
  * Valide un créneau : heures d'ouverture, congés, conflits.
  * Retourne un message d'erreur, ou null si le créneau est valide.
  */

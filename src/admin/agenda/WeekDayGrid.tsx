@@ -1,4 +1,5 @@
 import type { Appointment } from '../../lib/appointments'
+import { BLOCK_COLOR, STATUS_COLORS, STATUS_LABELS } from '../../lib/appointments'
 import type { BusinessHour, Closure } from '../../lib/businessHours'
 import { dayConfig, isClosedByClosure } from '../../lib/businessHours'
 import { DAY_LABELS_SHORT, hm, minutesToTime, sameDay, weekdayIndex } from '../../lib/datetime'
@@ -120,8 +121,7 @@ export function WeekDayGrid({
                 const rowIndex = Math.floor((sMin - startMin) / 60)
                 if (rowIndex < 0 || rowIndex >= hourCount) return null
                 const span = Math.min(Math.max(1, Math.ceil(durationMin(a) / 60)), hourCount - rowIndex)
-                const color = a.is_block ? '#57534e' : a.barber?.color ?? '#78716c'
-                const cancelled = a.status === 'cancelled'
+                const palette = a.is_block ? BLOCK_COLOR : STATUS_COLORS[a.status]
                 return (
                   <button
                     key={a.id}
@@ -131,18 +131,19 @@ export function WeekDayGrid({
                       draggedAppointment = a
                     }}
                     onClick={() => onSelectAppointment(a)}
-                    style={{ gridColumn: c + 2, gridRow: `${rowIndex + 1} / span ${span}`, backgroundColor: color }}
-                    className={`z-10 m-0.5 overflow-hidden rounded-md px-2 py-1 text-left text-xs text-white shadow-sm ${
-                      cancelled ? 'opacity-50 line-through' : ''
-                    } ${a.is_block ? 'opacity-80' : ''}`}
+                    style={{ gridColumn: c + 2, gridRow: `${rowIndex + 1} / span ${span}`, backgroundColor: palette.bg, color: palette.text }}
+                    className={`z-10 m-0.5 overflow-hidden rounded-md px-1.5 py-0.5 text-left text-[11px] leading-tight shadow-sm ${a.is_block ? 'opacity-90' : ''}`}
                   >
-                    <div className="font-medium">
+                    <div className="truncate font-medium">
                       {hm(start)} {a.is_block ? '⛔ Bloqué' : a.service?.name ?? ''}
                     </div>
                     {!a.is_block && (
-                      <div className="truncate opacity-90">
-                        {a.client ? `${a.client.first_name} ${a.client.last_name ?? ''}`.trim() : 'Sans client'}
-                      </div>
+                      <>
+                        <div className="truncate opacity-90">
+                          {a.client ? `${a.client.first_name} ${a.client.last_name ?? ''}`.trim() : 'Sans client'}
+                        </div>
+                        <div className="truncate font-medium opacity-80">{STATUS_LABELS[a.status]}</div>
+                      </>
                     )}
                   </button>
                 )

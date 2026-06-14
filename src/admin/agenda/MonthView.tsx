@@ -1,4 +1,5 @@
 import type { Appointment } from '../../lib/appointments'
+import { BLOCK_COLOR, STATUS_COLORS } from '../../lib/appointments'
 import { DAY_LABELS_SHORT, addDays, hm, sameDay, startOfMonth, startOfWeek } from '../../lib/datetime'
 
 type Props = {
@@ -40,19 +41,22 @@ export function MonthView({ cursor, appointments, onSelectDay, onSelectAppointme
                 {d.getDate()}
               </div>
               <div className="space-y-0.5">
-                {dayAppts.slice(0, 3).map((a) => (
-                  <div
-                    key={a.id}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectAppointment(a)
-                    }}
-                    style={{ backgroundColor: a.barber?.color ?? '#78716c' }}
-                    className={`truncate rounded px-1 py-0.5 text-[11px] text-white ${a.status === 'cancelled' ? 'opacity-50 line-through' : ''}`}
-                  >
-                    {hm(new Date(a.starts_at))} {a.client ? a.client.first_name : a.service?.name ?? 'RDV'}
-                  </div>
-                ))}
+                {dayAppts.slice(0, 3).map((a) => {
+                  const palette = a.is_block ? BLOCK_COLOR : STATUS_COLORS[a.status]
+                  return (
+                    <div
+                      key={a.id}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectAppointment(a)
+                      }}
+                      style={{ backgroundColor: palette.bg, color: palette.text }}
+                      className="truncate rounded px-1 py-0.5 text-[11px]"
+                    >
+                      {hm(new Date(a.starts_at))} {a.is_block ? '⛔' : a.client ? a.client.first_name : a.service?.name ?? 'RDV'}
+                    </div>
+                  )
+                })}
                 {dayAppts.length > 3 && <div className="text-[11px] text-stone-400">+{dayAppts.length - 3}</div>}
               </div>
             </button>

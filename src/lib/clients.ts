@@ -22,9 +22,10 @@ export async function listClients(): Promise<Client[]> {
   return data ?? []
 }
 
-export async function createClient(input: ClientInput): Promise<void> {
-  const { error } = await supabase.from('clients').insert(input)
+export async function createClient(input: ClientInput): Promise<string> {
+  const { data, error } = await supabase.from('clients').insert(input).select('id').single()
   if (error) throw error
+  return data.id as string
 }
 
 export async function updateClient(id: string, input: Partial<ClientInput>): Promise<void> {
