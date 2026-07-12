@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
 server: {
-    allowedHosts: ['les-freres-barbiers.signaweb.ca'],
+    allowedHosts: ['les-barbieres.signaweb.ca', 'les-freres-barbiers.signaweb.ca'],
     port: 3001
   },  
 
